@@ -288,15 +288,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML",
             reply_markup=reply_markup
         )
-
-        await context.bot.send_message(
-            chat_id=query.message.chat.id,
-            text="💳 لطفاً مبلغ فاکتور را به شماره کارت زیر واریز کنید:\n\n"
-                 "<b>6219</b>\n"
-                 "به نام مهدی عموزاده آرائی\n\n"
-                 "سپس عکس فیش پرداخت یا متن واریز را ارسال کنید.",
-            parse_mode="HTML"
-        )
     elif query.data == "clear_cart":
         user_orders[user_id] = {}
         sent_msg = await context.bot.send_message(
