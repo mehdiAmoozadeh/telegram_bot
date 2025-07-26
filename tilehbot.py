@@ -64,8 +64,7 @@ def save_last_price(price):
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
         [InlineKeyboardButton("📊 قیمت طلا", callback_data="gold_price")],
-        [InlineKeyboardButton("🪙 خرید قلک طلا", callback_data="buy_piggy")],
-        [InlineKeyboardButton("🔄 شروع دوباره", callback_data="restart")]
+        [InlineKeyboardButton("🪙 خرید قلک طلا", callback_data="buy_piggy")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("سلام! یکی از گزینه‌های زیر رو انتخاب کن:", reply_markup=reply_markup)
@@ -123,8 +122,52 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"{emoji} <b>{formatted} تومان</b>\n"
             f"{status}"
         )
-        await query.edit_message_text(msg, parse_mode="HTML")
+        keyboard = [[InlineKeyboardButton("🔙 بازگشت به منو", callback_data="main_menu")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text(msg, parse_mode="HTML", reply_markup=reply_markup)
     elif query.data == "buy_piggy":
+        # مرحله اول: نمایش دکمه‌های انتخاب زیر
+        buttons = [
+            [InlineKeyboardButton("📄 مشاهده قیمت‌ها", callback_data="view_prices")],
+            [InlineKeyboardButton("🛒 خرید قلک", callback_data="start_purchase")],
+            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+        ]
+        reply_markup = InlineKeyboardMarkup(buttons)
+        await query.edit_message_text("لطفاً یکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=reply_markup)
+    elif query.data == "view_prices":
+        gold = gold_price()
+        if gold is None:
+            await query.edit_message_text("❌ خطا در دریافت قیمت طلا.")
+            return
+
+        weights = {
+            "item_ball_110": 0.110,
+            "item_ball_100": 0.100,
+            "item_cube_110": 0.110,
+            "item_cube_90": 0.090,
+            "item_ball_30": 0.030
+        }
+
+        labels = {
+            "item_ball_110": "گوی ۱۱۰ سوتی",
+            "item_ball_100": "گوی ۱۰۰ سوتی",
+            "item_cube_110": "مکعب ۱۱۰ سوتی",
+            "item_cube_90": "مکعب ۹۰ سوتی",
+            "item_ball_30": "گوی ۳۰ سوتی"
+        }
+
+        lines = []
+        for key in weights:
+            weight = weights[key]
+            label = labels[key]
+            price = int(round(((weight * 1.19) * gold) / 1000) * 1000)
+            price_str = format_price_farsi(price)
+            lines.append(f"• {label}: {price_str} تومان")
+
+        keyboard = [[InlineKeyboardButton("🔙 بازگشت", callback_data="buy_piggy")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text("💰 قیمت قلک‌ها:\n\n" + "\n".join(lines), reply_markup=reply_markup)
+    elif query.data == "start_purchase":
         gold = gold_price()
         if gold is None:
             await query.edit_message_text("❌ خطا در دریافت قیمت طلا.")
@@ -239,21 +282,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         total_formatted = format_price_farsi(total)
         lines.append("\n💵 <b>مبلغ کل: " + total_formatted + " تومان</b>")
         reply_markup = InlineKeyboardMarkup(keyboard)
-        sent_msg = await context.bot.send_message(
+        await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="\n".join(lines),
             parse_mode="HTML",
             reply_markup=reply_markup
         )
-        # شماره کارت و درخواست فیش
-        pay_msg = await context.bot.send_message(
+
+        await context.bot.send_message(
             chat_id=query.message.chat.id,
-            text="💳 لطفاً مبلغ را به شماره کارت زیر واریز کنید:\n\n"
-                 "<b>6037-9971-2345-6789</b>\n\n"
-                 "سپس عکس فیش پرداخت را برای من ارسال کنید.",
+            text="💳 لطفاً مبلغ فاکتور را به شماره کارت زیر واریز کنید:\n\n"
+                 "<b>6219</b>\n"
+                 "به نام مهدی عموزاده آرائی\n\n"
+                 "سپس عکس فیش پرداخت یا متن واریز را ارسال کنید.",
             parse_mode="HTML"
         )
-        last_messages[user_id] = pay_msg.message_id
     elif query.data == "clear_cart":
         user_orders[user_id] = {}
         sent_msg = await context.bot.send_message(
@@ -275,7 +318,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         keyboard = [
             [InlineKeyboardButton("📊 قیمت طلا", callback_data="gold_price")],
             [InlineKeyboardButton("🪙 خرید قلک طلا", callback_data="buy_piggy")],
-            [InlineKeyboardButton("🔄 شروع دوباره", callback_data="restart")]
+            [InlineKeyboardButton("🔙 بازگشت به منوی قبل", callback_data="restart")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text("سلام! یکی از گزینه‌های زیر رو انتخاب کن:", reply_markup=reply_markup)
@@ -291,8 +334,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "restart":
         keyboard = [
             [InlineKeyboardButton("📊 قیمت طلا", callback_data="gold_price")],
-            [InlineKeyboardButton("🪙 خرید قلک طلا", callback_data="buy_piggy")],
-            [InlineKeyboardButton("🔄 شروع دوباره", callback_data="restart")]
+            [InlineKeyboardButton("🪙 خرید قلک طلا", callback_data="buy_piggy")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text("🔄 شروع دوباره:\nیکی از گزینه‌های زیر را انتخاب کن:", reply_markup=reply_markup)
@@ -375,10 +417,33 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         address = update.message.text
         admin_chat_id = 192013754  # آیدی عددی شما
 
-        # ارسال اطلاعات کامل به مدیر
-        summary = "\n".join([f"{k}: {v}" for k, v in order_data['order'].items()])
-        msg = f"📦 آدرس جدید از کاربر {user_id}:\n\n{address}\n\n🛍 سفارش:\n{summary}"
-        await context.bot.send_message(chat_id=admin_chat_id, text=msg)
+        # ارسال اطلاعات کامل به مدیر با نام فارسی آیتم‌ها و جمع کل
+        labels = {
+            "item_ball_110": "گوی ۱۱۰ سوتی",
+            "item_ball_100": "گوی ۱۰۰ سوتی",
+            "item_cube_110": "مکعب ۱۱۰ سوتی",
+            "item_cube_90": "مکعب ۹۰ سوتی",
+            "item_ball_30": "گوی ۳۰ سوتی"
+        }
+        gold = gold_price()
+        total = 0
+        lines = []
+        for key, count in order_data['order'].items():
+            label = labels.get(key, key)
+            weight = {"item_ball_110": 0.110, "item_ball_100": 0.100, "item_cube_110": 0.110, "item_cube_90": 0.090, "item_ball_30": 0.030}[key]
+            final_price = int(round(((weight * 1.19) * gold) / 1000) * 1000)
+            lines.append(f"{label} × {count} = {format_price_farsi(final_price * count)} تومان")
+            total += final_price * count
+
+        total_formatted = format_price_farsi(total)
+        user_mention = f'<a href="tg://user?id={user_id}">{user_id}</a>'
+        summary = (
+            f"📦 سفارش جدید از کاربر {user_mention}\n\n"
+            f"🛍 فاکتور:\n" + "\n".join(lines) +
+            f"\n\n💵 مبلغ کل: {total_formatted} تومان\n"
+            f"\n📬 آدرس و شماره تماس:\n{address}"
+        )
+        await context.bot.send_message(chat_id=admin_chat_id, text=summary, parse_mode="HTML")
 
         await update.message.reply_text("✅ آدرس دریافت شد. سفارش شما ثبت شد. ممنون از خریدتون 💛")
         user_orders[user_id] = {}
