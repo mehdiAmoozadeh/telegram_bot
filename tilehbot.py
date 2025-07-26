@@ -1,4 +1,4 @@
-import requests
+
 import bs4
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
