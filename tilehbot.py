@@ -317,8 +317,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data == "main_menu":
         keyboard = [
             [InlineKeyboardButton("📊 قیمت طلا", callback_data="gold_price")],
-            [InlineKeyboardButton("🪙 خرید قلک طلا", callback_data="buy_piggy")],
-            [InlineKeyboardButton("🔙 بازگشت به منوی قبل", callback_data="restart")]
+            [InlineKeyboardButton("🪙 خرید قلک طلا", callback_data="buy_piggy")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text("سلام! یکی از گزینه‌های زیر رو انتخاب کن:", reply_markup=reply_markup)
@@ -326,7 +325,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="💳 لطفاً مبلغ فاکتور را به شماره کارت زیر واریز کنید:\n\n"
-                 "<b>6037-9971-2345-6789</b>\n"
+                 "<b>6219 8619 1416 7779</b>\n"
                  "به نام مهدی عموزاده آرائی\n\n"
                  "سپس عکس فیش پرداخت یا متن واریز را ارسال کنید.",
             parse_mode="HTML"
@@ -392,20 +391,29 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "file_id": file_id
         }
 
-        # پیام تشکر
-        # await update.message.reply_text("✅ فیش دریافت شد. ممنون از خرید شما 🌟")
+        # پیام تشکر (در صورت نیاز)
+        #await update.message.reply_text("✅ فیش دریافت شد. ممنون از خرید شما 🌟")
 
-        # اطلاع‌رسانی به مدیر (مثلاً آیدی عددی شما)
         admin_chat_id = 192013754  # جایگزین کن
-        order_text = "\n".join([f"{k}: {v}" for k, v in user_orders[user_id].items()])
+        labels = {
+            "item_ball_110": "گوی ۱۱۰ سوتی",
+            "item_ball_100": "گوی ۱۰۰ سوتی",
+            "item_cube_110": "مکعب ۱۱۰ سوتی",
+            "item_cube_90": "مکعب ۹۰ سوتی",
+            "item_ball_30": "گوی ۳۰ سوتی"
+        }
+        order_items = user_orders[user_id]
+        order_text = "\n".join([f"{labels.get(k, k)} × {v}" for k, v in order_items.items()])
+        user_mention = f'<a href="tg://user?id={user_id}">{user_id}</a>'
         await context.bot.send_photo(
             chat_id=admin_chat_id,
             photo=file_id,
-            caption=f"📥 سفارش جدید از کاربر {user_id}:\n{order_text}"
+            caption=f"📥 سفارش جدید از کاربر {user_mention}:\n\n{order_text}",
+            parse_mode="HTML"
         )
 
         awaiting_address[user_id] = user_payments[user_id]
-        await update.message.reply_text("✅ فیش دریافت شد.\n\n📬 لطفاً آدرس پستی و شماره تماس خود را ارسال نمایید تا سفارش شما ثبت شود.")
+        await update.message.reply_text("✅ فیش دریافت شد.\n\n📬 لطفاً آدرس پستی و شماره تماس خود را وارد نمایید:")
     else:
         await update.message.reply_text("لطفاً فیش را به صورت عکس ارسال کنید.")
 
