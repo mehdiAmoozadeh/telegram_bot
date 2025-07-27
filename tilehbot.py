@@ -71,15 +71,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_messages[user_id] = sent_msg.message_id
         return
 
-    # حذف همه پیام‌های فعال قبلی
-    for uid, msg_id in list(last_messages.items()):
-        if uid == user_id:
-            try:
-                await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=msg_id)
-            except:
-                pass
-            del last_messages[uid]
-
     keyboard = [
         [InlineKeyboardButton("📊 قیمت طلا", callback_data="gold_price")],
         [InlineKeyboardButton("🪙 قلک طلا", callback_data="buy_piggy")]
@@ -96,11 +87,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = query.from_user.id
     old_msg_id = last_messages.get(user_id)
-    if old_msg_id and old_msg_id != query.message.message_id:
-        try:
-            await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
-        except:
-            pass
 
     if query.data == "gold_price":
         # اصلاح وزن‌ها با مقادیر صحیح (بر حسب کیلوگرم)
@@ -157,12 +143,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text("لطفاً یکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=reply_markup)
     elif query.data == "suggest_budget":
         awaiting_budget[user_id] = True
-        old_msg_id = last_messages.get(user_id)
-        if old_msg_id:
-            try:
-                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
-            except:
-                pass
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="🧮 لطفاً بودجه‌ات رو بر حسب تومان وارد کن "
@@ -266,14 +246,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         final_price = int(round(raw_price / 1000) * 1000)
         formatted = format_price_farsi(final_price)
         await query.answer("به سبد خرید اضافه شد ✅", show_alert=False)
-        # حذف پیام قبلی
-        old_msg_id = last_messages.get(user_id)
-        if old_msg_id:
-            try:
-                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
-            except:
-                pass
-
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text=(
@@ -307,14 +279,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_id not in user_orders or not user_orders[user_id]:
             await query.edit_message_text("سبد خرید شما خالی است.")
             return
-
-        # حذف پیام قبلی
-        old_msg_id = last_messages.get(user_id)
-        if old_msg_id:
-            try:
-                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
-            except:
-                pass
 
         weights = {
             "item_ball_110": 0.110,
@@ -361,13 +325,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_messages[user_id] = sent_msg.message_id
     elif query.data == "clear_cart":
         user_orders[user_id] = {}
-        # حذف پیام قبلی
-        old_msg_id = last_messages.get(user_id)
-        if old_msg_id:
-            try:
-                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
-            except:
-                pass
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="🗑 سبد خرید با موفقیت پاک شد."
@@ -378,13 +335,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_id in user_orders and item_key in user_orders[user_id]:
             del user_orders[user_id][item_key]
         await query.answer("✅ حذف شد")
-        # حذف پیام قبلی
-        old_msg_id = last_messages.get(user_id)
-        if old_msg_id:
-            try:
-                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
-            except:
-                pass
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="مورد حذف شد. برای مشاهده فاکتور جدید، دوباره دکمه فاکتور را بزنید."
@@ -400,13 +350,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text("سلام! یکی از گزینه‌های زیر رو انتخاب کن:", reply_markup=reply_markup)
     elif query.data == "submit_order":
-        # حذف پیام قبلی
-        old_msg_id = last_messages.get(user_id)
-        if old_msg_id:
-            try:
-                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
-            except:
-                pass
         keyboard = [[InlineKeyboardButton("📤 ارسال فیش پرداخت", callback_data="send_receipt")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
         sent_msg = await context.bot.send_message(
@@ -416,13 +359,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         last_messages[user_id] = sent_msg.message_id
     elif query.data == "send_receipt":
-        # حذف پیام قبلی
-        old_msg_id = last_messages.get(user_id)
-        if old_msg_id:
-            try:
-                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
-            except:
-                pass
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="💳 لطفاً مبلغ فاکتور را به شماره کارت زیر واریز کنید:\n\n"
@@ -434,13 +370,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_messages[user_id] = sent_msg.message_id
     elif query.data == "cancel_order":
         user_orders[user_id] = {}
-        # حذف پیام قبلی
-        old_msg_id = last_messages.get(user_id)
-        if old_msg_id:
-            try:
-                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
-            except:
-                pass
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="❌ سفارش فعلی لغو شد."
@@ -498,11 +427,6 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     # حذف پیام قبلی با دقت (تا از حذف پیام تایید جلوگیری شود)
     old_msg_id = last_messages.get(user_id)
-    if old_msg_id:
-        try:
-            await context.bot.delete_message(chat_id=update.message.chat.id, message_id=old_msg_id)
-        except:
-            pass
 
     if user_id not in user_orders or not user_orders[user_id]:
         sent_msg = await update.message.reply_text("❗️شما هنوز سفارشی ثبت نکرده‌اید.")
