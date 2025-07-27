@@ -62,13 +62,27 @@ def save_last_price(price):
     conn.close()
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    old_msg_id = last_messages.get(user_id)
+
+    if user_id in awaiting_address:
+        sent_msg = await update.message.reply_text("📬 شما در حال ارسال آدرس سفارش هستید. لطفاً ابتدا آدرس را وارد کنید.")
+        last_messages[user_id] = sent_msg.message_id
+        return
+
+    if old_msg_id:
+        try:
+            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=old_msg_id)
+        except:
+            pass
+
     keyboard = [
         [InlineKeyboardButton("📊 قیمت طلا", callback_data="gold_price")],
-        [InlineKeyboardButton("🪙 خرید قلک طلا", callback_data="buy_piggy")]
+        [InlineKeyboardButton("🪙 قلک طلا", callback_data="buy_piggy")]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("سلام! یکی از گزینه‌های زیر رو انتخاب کن:", reply_markup=reply_markup)
-    user_id = update.effective_user.id
+    sent_msg = await update.message.reply_text("سلام! یکی از گزینه‌های زیر رو انتخاب کن:", reply_markup=reply_markup)
+    last_messages[user_id] = sent_msg.message_id
     user_started.add(user_id)
 from telegram import CallbackQuery
 
@@ -129,9 +143,12 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # مرحله اول: نمایش دکمه‌های انتخاب زیر
         buttons = [
             [InlineKeyboardButton("📄 مشاهده قیمت‌ها", callback_data="view_prices")],
-            [InlineKeyboardButton("🛒 خرید قلک", callback_data="start_purchase")],
-            [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+            [InlineKeyboardButton("💡 پیشنهاد بر اساس بودجه شما", callback_data="suggest_budget")],
+            [InlineKeyboardButton("🛒 خرید قلک", callback_data="start_purchase")]
         ]
+        if user_id in user_orders and user_orders[user_id]:
+            buttons.append([InlineKeyboardButton("🧾 مشاهده سفارش فعلی", callback_data="view_invoice")])
+        buttons.append([InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")])
         reply_markup = InlineKeyboardMarkup(buttons)
         await query.edit_message_text("لطفاً یکی از گزینه‌های زیر را انتخاب کنید:", reply_markup=reply_markup)
     elif query.data == "view_prices":
@@ -232,6 +249,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         final_price = int(round(raw_price / 1000) * 1000)
         formatted = format_price_farsi(final_price)
         await query.answer("به سبد خرید اضافه شد ✅", show_alert=False)
+        # حذف پیام قبلی
+        old_msg_id = last_messages.get(user_id)
+        if old_msg_id:
+            try:
+                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
+            except:
+                pass
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text=(
@@ -246,6 +270,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_id not in user_orders or not user_orders[user_id]:
             await query.edit_message_text("سبد خرید شما خالی است.")
             return
+
+        # حذف پیام قبلی
+        old_msg_id = last_messages.get(user_id)
+        if old_msg_id:
+            try:
+                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
+            except:
+                pass
 
         weights = {
             "item_ball_110": 0.110,
@@ -278,18 +310,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             lines.append(f"{label} × {count} = {format_price_farsi(final_price * count)} تومان")
             keyboard.append([InlineKeyboardButton(f"❌ حذف {label}", callback_data=f"remove_{key}")])
         keyboard.append([InlineKeyboardButton("✅ ثبت سفارش", callback_data="submit_order")])
+        keyboard.append([InlineKeyboardButton("❌ لغو سفارش فعلی", callback_data="cancel_order")])
 
         total_formatted = format_price_farsi(total)
         lines.append("\n💵 <b>مبلغ کل: " + total_formatted + " تومان</b>")
         reply_markup = InlineKeyboardMarkup(keyboard)
-        await context.bot.send_message(
+        sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="\n".join(lines),
             parse_mode="HTML",
             reply_markup=reply_markup
         )
+        last_messages[user_id] = sent_msg.message_id
     elif query.data == "clear_cart":
         user_orders[user_id] = {}
+        # حذف پیام قبلی
+        old_msg_id = last_messages.get(user_id)
+        if old_msg_id:
+            try:
+                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
+            except:
+                pass
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="🗑 سبد خرید با موفقیت پاک شد."
@@ -300,6 +341,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if user_id in user_orders and item_key in user_orders[user_id]:
             del user_orders[user_id][item_key]
         await query.answer("✅ حذف شد")
+        # حذف پیام قبلی
+        old_msg_id = last_messages.get(user_id)
+        if old_msg_id:
+            try:
+                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
+            except:
+                pass
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="مورد حذف شد. برای مشاهده فاکتور جدید، دوباره دکمه فاکتور را بزنید."
@@ -310,10 +358,35 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("📊 قیمت طلا", callback_data="gold_price")],
             [InlineKeyboardButton("🪙 خرید قلک طلا", callback_data="buy_piggy")]
         ]
+        if user_id in user_orders and user_orders[user_id]:
+            keyboard.append([InlineKeyboardButton("🧾 مشاهده سفارش فعلی", callback_data="view_invoice")])
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.edit_message_text("سلام! یکی از گزینه‌های زیر رو انتخاب کن:", reply_markup=reply_markup)
     elif query.data == "submit_order":
-        await context.bot.send_message(
+        # حذف پیام قبلی
+        old_msg_id = last_messages.get(user_id)
+        if old_msg_id:
+            try:
+                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
+            except:
+                pass
+        keyboard = [[InlineKeyboardButton("📤 ارسال فیش پرداخت", callback_data="send_receipt")]]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        sent_msg = await context.bot.send_message(
+            chat_id=query.message.chat.id,
+            text="✅ سفارش شما آماده است.\nبرای تکمیل خرید، فیش پرداخت خود را ارسال کنید.",
+            reply_markup=reply_markup
+        )
+        last_messages[user_id] = sent_msg.message_id
+    elif query.data == "send_receipt":
+        # حذف پیام قبلی
+        old_msg_id = last_messages.get(user_id)
+        if old_msg_id:
+            try:
+                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
+            except:
+                pass
+        sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text="💳 لطفاً مبلغ فاکتور را به شماره کارت زیر واریز کنید:\n\n"
                  "<b>6219 8619 1416 7779</b>\n"
@@ -321,6 +394,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                  "سپس عکس فیش پرداخت یا متن واریز را ارسال کنید.",
             parse_mode="HTML"
         )
+        last_messages[user_id] = sent_msg.message_id
+    elif query.data == "cancel_order":
+        user_orders[user_id] = {}
+        # حذف پیام قبلی
+        old_msg_id = last_messages.get(user_id)
+        if old_msg_id:
+            try:
+                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
+            except:
+                pass
+        sent_msg = await context.bot.send_message(
+            chat_id=query.message.chat.id,
+            text="❌ سفارش فعلی لغو شد."
+        )
+        last_messages[user_id] = sent_msg.message_id
     elif query.data == "restart":
         keyboard = [
             [InlineKeyboardButton("📊 قیمت طلا", callback_data="gold_price")],
@@ -372,7 +460,8 @@ from telegram.ext import ContextTypes
 async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id not in user_orders or not user_orders[user_id]:
-        await update.message.reply_text("❗️شما هنوز سفارشی ثبت نکرده‌اید.")
+        sent_msg = await update.message.reply_text("❗️شما هنوز سفارشی ثبت نکرده‌اید.")
+        last_messages[user_id] = sent_msg.message_id
         return
 
     if update.message.photo:
@@ -382,10 +471,7 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "file_id": file_id
         }
 
-        # پیام تشکر (در صورت نیاز)
-        #await update.message.reply_text("✅ فیش دریافت شد. ممنون از خرید شما 🌟")
-
-        admin_chat_id = 192013754  # جایگزین کن
+        admin_chat_id = 7678246038  #آیدی ادمین
         labels = {
             "item_ball_110": "گوی ۱۱۰ سوتی",
             "item_ball_100": "گوی ۱۰۰ سوتی",
@@ -404,9 +490,13 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
         awaiting_address[user_id] = user_payments[user_id]
-        await update.message.reply_text("✅ فیش دریافت شد.\n\n📬 لطفاً آدرس پستی و شماره تماس خود را وارد نمایید:")
+        sent_msg = await update.message.reply_text("✅ فیش دریافت شد.\n\n📬 لطفاً آدرس پستی و شماره تماس خود را وارد نمایید:")
+        last_messages[user_id] = sent_msg.message_id
+        # پاک کردن پرداخت پس از دریافت موفق فیش
+        user_payments.pop(user_id, None)
     else:
-        await update.message.reply_text("لطفاً فیش را به صورت عکس ارسال کنید.")
+        sent_msg = await update.message.reply_text("لطفاً فیش را به صورت عکس ارسال کنید.")
+        last_messages[user_id] = sent_msg.message_id
 
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -414,7 +504,7 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in awaiting_address:
         order_data = awaiting_address.pop(user_id)
         address = update.message.text
-        admin_chat_id = 192013754  # آیدی عددی شما
+        admin_chat_id = 7678246038  # آیدی عددی شما
 
         # ارسال اطلاعات کامل به مدیر با نام فارسی آیتم‌ها و جمع کل
         labels = {
@@ -444,7 +534,8 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await context.bot.send_message(chat_id=admin_chat_id, text=summary, parse_mode="HTML")
 
-        await update.message.reply_text("✅ آدرس دریافت شد. سفارش شما ثبت شد. ممنون از خریدتون 💛")
+        sent_msg = await update.message.reply_text("✅ آدرس دریافت شد. سفارش شما ثبت شد. ممنون از خریدتون 💛")
+        last_messages[user_id] = sent_msg.message_id
         user_orders[user_id] = {}
 
 if __name__ == '__main__':
