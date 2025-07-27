@@ -71,11 +71,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         last_messages[user_id] = sent_msg.message_id
         return
 
-    if old_msg_id:
-        try:
-            await context.bot.delete_message(chat_id=update.effective_chat.id, message_id=old_msg_id)
-        except:
-            pass
     # حذف همه پیام‌های فعال قبلی
     for uid, msg_id in list(last_messages.items()):
         if uid == user_id:
@@ -278,6 +273,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
             except:
                 pass
+
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
             text=(
@@ -288,6 +284,25 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
         last_messages[user_id] = sent_msg.message_id
+
+        # ارسال مجدد منوی انتخاب مدل قلک
+        buttons = []
+        for key in weights:
+            w = weights[key]
+            l = labels[key]
+            price = int(round(((w * 1.19) * gold) / 1000) * 1000)
+            price_str = format_price_farsi(price)
+            buttons.append([InlineKeyboardButton(f"➕ {l} - {price_str} تومان", callback_data=key)])
+        buttons.append([InlineKeyboardButton("🧾 مشاهده فاکتور", callback_data="view_invoice")])
+        buttons.append([InlineKeyboardButton("🗑 پاک کردن سبد خرید", callback_data="clear_cart")])
+        buttons.append([InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")])
+        reply_markup = InlineKeyboardMarkup(buttons)
+        sent_msg2 = await context.bot.send_message(
+            chat_id=query.message.chat.id,
+            text="مدل مورد نظر قلک طلا رو انتخاب کن:",
+            reply_markup=reply_markup
+        )
+        last_messages[user_id] = sent_msg2.message_id
     elif query.data == "view_invoice":
         if user_id not in user_orders or not user_orders[user_id]:
             await query.edit_message_text("سبد خرید شما خالی است.")
