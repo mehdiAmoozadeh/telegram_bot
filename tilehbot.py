@@ -266,13 +266,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         final_price = int(round(raw_price / 1000) * 1000)
         formatted = format_price_farsi(final_price)
         await query.answer("به سبد خرید اضافه شد ✅", show_alert=False)
-        # حذف پیام قبلی
-        old_msg_id = last_messages.get(user_id)
-        if old_msg_id:
-            try:
-                await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
-            except:
-                pass
 
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
@@ -284,25 +277,6 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             parse_mode="HTML"
         )
         last_messages[user_id] = sent_msg.message_id
-
-        # ارسال مجدد منوی انتخاب مدل قلک
-        buttons = []
-        for key in weights:
-            w = weights[key]
-            l = labels[key]
-            price = int(round(((w * 1.19) * gold) / 1000) * 1000)
-            price_str = format_price_farsi(price)
-            buttons.append([InlineKeyboardButton(f"➕ {l} - {price_str} تومان", callback_data=key)])
-        buttons.append([InlineKeyboardButton("🧾 مشاهده فاکتور", callback_data="view_invoice")])
-        buttons.append([InlineKeyboardButton("🗑 پاک کردن سبد خرید", callback_data="clear_cart")])
-        buttons.append([InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")])
-        reply_markup = InlineKeyboardMarkup(buttons)
-        sent_msg2 = await context.bot.send_message(
-            chat_id=query.message.chat.id,
-            text="مدل مورد نظر قلک طلا رو انتخاب کن:",
-            reply_markup=reply_markup
-        )
-        last_messages[user_id] = sent_msg2.message_id
     elif query.data == "view_invoice":
         if user_id not in user_orders or not user_orders[user_id]:
             await query.edit_message_text("سبد خرید شما خالی است.")
@@ -407,12 +381,10 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await context.bot.delete_message(chat_id=query.message.chat.id, message_id=old_msg_id)
             except:
                 pass
-        keyboard = [[InlineKeyboardButton("📤 ارسال فیش پرداخت", callback_data="send_receipt")]]
-        reply_markup = InlineKeyboardMarkup(keyboard)
         sent_msg = await context.bot.send_message(
             chat_id=query.message.chat.id,
-            text="✅ سفارش شما آماده است.\nبرای تکمیل خرید، فیش پرداخت خود را ارسال کنید.",
-            reply_markup=reply_markup
+            text="✅ سفارش شما ثبت شد.\n\n💳 لطفاً مبلغ فاکتور را به شماره کارت زیر واریز کرده و سپس فیش پرداخت را به صورت عکس ارسال کنید:\n\n<b>6219 8619 1416 7779</b>\nبه نام مهدی عموزاده آرائی",
+            parse_mode="HTML"
         )
         last_messages[user_id] = sent_msg.message_id
     elif query.data == "send_receipt":
@@ -496,6 +468,8 @@ from telegram.ext import ContextTypes
 
 async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    if user_id not in user_started:
+        return
     if user_id not in user_orders or not user_orders[user_id]:
         sent_msg = await update.message.reply_text("❗️شما هنوز سفارشی ثبت نکرده‌اید.")
         last_messages[user_id] = sent_msg.message_id
@@ -538,6 +512,8 @@ async def handle_receipt(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    if user_id not in user_started:
+        return
     # بودجه: اگر کاربر در حالت انتظار بودجه است
     if user_id in awaiting_budget:
         awaiting_budget.pop(user_id)
@@ -550,7 +526,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         import re
         match = re.search(r"\d+", text)
         if not match:
-            sent_msg = await update.message.reply_text("❌ لطفاً مقدار عددی معتبر وارد کن.")
+            keyboard = [
+                [InlineKeyboardButton("💸 وارد کردن بودجه جدید", callback_data="suggest_budget")],
+                [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            sent_msg = await update.message.reply_text("❌ لطفاً مقدار عددی معتبر وارد کن.", reply_markup=reply_markup)
             last_messages[user_id] = sent_msg.message_id
             return
 
@@ -558,7 +539,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         gold = gold_price()
         if gold is None:
-            sent_msg = await update.message.reply_text("❌ خطا در دریافت قیمت طلا.")
+            keyboard = [
+                [InlineKeyboardButton("💸 وارد کردن بودجه جدید", callback_data="suggest_budget")],
+                [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            sent_msg = await update.message.reply_text("❌ خطا در دریافت قیمت طلا.", reply_markup=reply_markup)
             last_messages[user_id] = sent_msg.message_id
             return
 
@@ -595,7 +581,12 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 result.append(f"{labels[key]} × {count} = {format_price_farsi(count * price)} تومان")
 
         if not result:
-            sent_msg = await update.message.reply_text("❌ با این بودجه امکان خرید هیچ آیتمی وجود ندارد.")
+            keyboard = [
+                [InlineKeyboardButton("💸 وارد کردن بودجه جدید", callback_data="suggest_budget")],
+                [InlineKeyboardButton("🔙 بازگشت به منوی اصلی", callback_data="main_menu")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            sent_msg = await update.message.reply_text("❌ با این بودجه امکان خرید هیچ آیتمی وجود ندارد.", reply_markup=reply_markup)
             last_messages[user_id] = sent_msg.message_id
             return
 
