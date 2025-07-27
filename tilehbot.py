@@ -650,7 +650,7 @@ if __name__ == '__main__':
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("gold", gold))
     app.add_handler(CallbackQueryHandler(button_handler))
-    app.add_handler(MessageHandler(filters.PHOTO, handle_receipt))
+    app.add_handler(MessageHandler(filters.PHOTO | filters.Document.IMAGE, handle_receipt))
     app.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_text))
     print("ربات در حال اجراست...")
     app.run_polling()
